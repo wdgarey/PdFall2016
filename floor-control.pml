@@ -1,4 +1,4 @@
-mtype = { req, grant, deny, release, taken, qreq, qinfo, rtp };
+mtype = { req, grant, deny, release, taken, rtp };
 
 chan c = [32] of { byte; byte };
 
@@ -22,17 +22,17 @@ start_stop:
           if
             :: c?taken(inId) ->
               /* Start: T230 */
-              /* Notification: floor taken */
+              /* Notify: floor taken */
               /* Start: T203 */
               goto no_perm
             :: c?grant(inId) ->
               /* Start: T230 */
-              /* Notification: floor taken */
+              /* Notify: floor taken */
               /* Start: T203 */
               goto no_perm
             :: c?rtp(inId) ->
               /* Start: T230 */
-              /* Notification: floor taken */
+              /* Notify: floor taken */
               /* Start: T203 */
               goto no_perm
             :: else ->
@@ -42,7 +42,6 @@ start_stop:
       fi
   od;
 pend_req:
-queued:
 silence:
   do
     :: c?rtp(inId) ->
@@ -50,11 +49,11 @@ silence:
       /* Restart: T203 */
       goto no_perm
     :: c?grant(inId) ->
-      /* Notification: floor taken */
+      /* Notify: floor taken */
       /* Start: T203 */
       goto no_perm
     :: c?taken(inId) ->
-      /* Notification: floor taken */
+      /* Notify: floor taken */
       /* Start: T203 */
       goto no_perm
     :: else
@@ -68,6 +67,42 @@ silence:
       fi
   od;
 has_perm:
+  do
+    :: (true) ->
+      c!rtp(id)
+    :: c?req(inId) ->
+      c!deny(inId)
+    :: (true) ->
+      /* Start: T230 */
+      c!release(myId);
+      goto silence
+  od;
 no_perm:
+  do
+    :: c?release(inId) ->
+      /* Stop: T203 */
+      /* Notify: floor idle */
+      goto silence
+    :: c?grant(inId) ->
+      /* Restart: T203 */
+      /* Notify: floor taken */
+      skip
+    :: c?rtp(inId)
+      /* Restart: T230 */
+      /* Restart: T203 */
+      skip
+    :: else ->
+      fi
+        :: (true) -> /* Expiry: T203 */
+          /* Notify: floor idle */
+          goto silence
+        :: (true) ->
+          skip
+        :: (true) ->
+          /* Start: T201 */
+          c!req(myId);
+          goto pend_req
+      fi
+  od;
 pend_granted:
 }
