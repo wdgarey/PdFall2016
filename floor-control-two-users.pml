@@ -1,7 +1,7 @@
 mtype = { req, grant, deny, release, taken, rtp };
 
-chan aToB = [0] of { mtype, byte };
-chan bToA = [0] of { mtype, byte };
+chan aToB =  of { mtype, byte };
+chan bToA =  of { mtype, byte };
 
 proctype machineA (byte myId; bool originator; bool makeReq)
 {
@@ -20,11 +20,11 @@ start_stop:
           goto pend_req
         :: (makeReq == false) ->
           if
-            :: bToA?taken(inId) ->
+            :: bToA??taken(inId) ->
               goto no_perm
-            :: bToA?grant(inId) ->
+            :: bToA??grant(inId) ->
               goto no_perm
-            :: bToA?rtp(inId) ->
+            :: bToA??rtp(inId) ->
               goto no_perm
             :: timeout ->
               goto silence
@@ -34,18 +34,18 @@ start_stop:
 pend_req:
   printf ("%d entered pending request\n", myId);
   do
-    :: bToA?rtp(inId) ->
+    :: bToA??rtp(inId) ->
       skip
-    :: bToA?deny(inId) ->
+    :: bToA??deny(inId) ->
       goto no_perm
-    :: bToA?grant(inId) ->
+    :: bToA??grant(inId) ->
       if
         :: (inId == myId) ->
           goto has_perm
         :: (inId != myId) ->
           skip
       fi
-    :: bToA?taken(inId)
+    :: bToA??taken(inId)
       skip
     :: timeout ->
       if
@@ -64,11 +64,11 @@ pend_req:
 silence:
   printf ("%d entered silence\n", myId);
   do
-    :: bToA?rtp(inId) ->
+    :: bToA??rtp(inId) ->
       goto no_perm
-    :: bToA?grant(inId) ->
+    :: bToA??grant(inId) ->
       goto no_perm
-    :: bToA?taken(inId) ->
+    :: bToA??taken(inId) ->
       goto no_perm
     :: timeout ->
       if
@@ -84,9 +84,9 @@ has_perm:
   do
     :: (true) ->
       aToB!rtp(myId)
-    :: bToA?req(inId) ->
+    :: bToA??req(inId) ->
       aToB!deny(inId)
-    :: bToA?release(inId) ->
+    :: bToA??release(inId) ->
       skip
     :: (true) ->
       aToB!release(myId);
@@ -95,11 +95,11 @@ has_perm:
 no_perm:
   printf ("%d entered has no permission\n", myId);
   do
-    :: bToA?release(inId) ->
+    :: bToA??release(inId) ->
       goto silence
-    :: bToA?grant(inId) ->
+    :: bToA??grant(inId) ->
       skip
-    :: bToA?rtp(inId)
+    :: bToA??rtp(inId)
       skip
     :: timeout ->
       if
@@ -131,11 +131,11 @@ start_stop:
           goto pend_req
         :: (makeReq == false) ->
           if
-            :: aToB?taken(inId) ->
+            :: aToB??taken(inId) ->
               goto no_perm
-            :: aToB?grant(inId) ->
+            :: aToB??grant(inId) ->
               goto no_perm
-            :: aToB?rtp(inId) ->
+            :: aToB??rtp(inId) ->
               goto no_perm
             :: timeout ->
               goto silence
@@ -145,18 +145,18 @@ start_stop:
 pend_req:
   printf ("%d entered pending request\n", myId);
   do
-    :: aToB?rtp(inId) ->
+    :: aToB??rtp(inId) ->
       skip
-    :: aToB?deny(inId) ->
+    :: aToB??deny(inId) ->
       goto no_perm
-    :: aToB?grant(inId) ->
+    :: aToB??grant(inId) ->
       if
         :: (inId == myId) ->
           goto has_perm
         :: (inId != myId) ->
           skip
       fi
-    :: aToB?taken(inId)
+    :: aToB??taken(inId)
       skip
     :: timeout ->
       if
@@ -175,11 +175,11 @@ pend_req:
 silence:
   printf ("%d entered silence\n", myId);
   do
-    :: aToB?rtp(inId) ->
+    :: aToB??rtp(inId) ->
       goto no_perm
-    :: aToB?grant(inId) ->
+    :: aToB??grant(inId) ->
       goto no_perm
-    :: aToB?taken(inId) ->
+    :: aToB??taken(inId) ->
       goto no_perm
     :: timeout ->
       if
@@ -195,9 +195,9 @@ has_perm:
   do
     :: (true) ->
       bToA!rtp(myId)
-    :: aToB?req(inId) ->
+    :: aToB??req(inId) ->
       bToA!deny(inId)
-    :: aToB?release(inId) ->
+    :: aToB??release(inId) ->
       skip
     :: (true) ->
       bToA!release(myId);
@@ -206,11 +206,11 @@ has_perm:
 no_perm:
   printf ("%d entered has no permission\n", myId);
   do
-    :: aToB?release(inId) ->
+    :: aToB??release(inId) ->
       goto silence
-    :: aToB?grant(inId) ->
+    :: aToB??grant(inId) ->
       skip
-    :: aToB?rtp(inId)
+    :: aToB??rtp(inId)
       skip
     :: timeout ->
       if
@@ -229,6 +229,5 @@ init
 {
   run machineA (1, true, false);
   run machineB (2, false, false)
-
 }
 
