@@ -1,0 +1,5 @@
+- Read document TS 124.380 (Sept. 13 - 27)
+- Validated the state transition and flow diagrams listed in the standards
+  document by creating my own state transition diagram and comparing it with the
+  given diagram(Sept. 27 - Oct. 1)
+- Start implementing the state diagram in PROMELA (Oct. 1 - )
