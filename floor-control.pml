@@ -45,10 +45,6 @@ pend_req:
 queued:
 silence:
   do
-    :: (true) ->
-      /* Start: T201 */
-      c!req(myId);
-      goto pend_req
     :: c?rtp(inId) ->
       /* Restart: T230 */
       /* Restart: T203 */
@@ -61,6 +57,15 @@ silence:
       /* Notification: floor taken */
       /* Start: T203 */
       goto no_perm
+    :: else
+      if
+        :: (true) ->
+          skip
+        :: (true) ->
+          /* Start: T201 */
+          c!req(myId);
+          goto pend_req
+      fi
   od;
 has_perm:
 no_perm:
