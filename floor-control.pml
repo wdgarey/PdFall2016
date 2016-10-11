@@ -1,45 +1,34 @@
 mtype = { req, grant, deny, release, taken, rtp };
 
 int N = 2;
-chan channels[N] = [0] of { mtype, byte };
+chan channels[N] = [3] of { mtype, byte };
 
-proctype machine (byte myId; bool originator; bool makeReq)
+proctype machine (byte myId)
 {
   byte inId;
-  byte c201;
-  byte c203;
   byte theirId = 1 - myId;
 
 start_stop:
   printf ("%d entered start-stop\n", myId);
   if
-    :: (originator == true) ->
-      channels[theirId]!grant(myId);
+    :: channels[theirId]!grant(myId) ->
       goto has_perm;
-    :: (originator == false) ->
-      if
-        :: (makeReq == true) ->
-          channels[theirId]!req(myId);
-          goto pend_req;
-        :: (makeReq == false) ->
-          if
-            :: channels[myId]?taken(inId) ->
-              goto no_perm;
-            :: channels[myId]?grant(inId) ->
-              goto no_perm;
-            :: channels[myId]?rtp(inId) ->
-              goto no_perm;
-            :: timeout ->
-              goto silence;
-          fi;
-      fi;
+    :: channels[theirId]!req(myId) ->
+      goto pend_req;
+    :: channels[myId]?taken(inId) ->
+      goto no_perm;
+    :: channels[myId]?grant(inId) ->
+      goto no_perm;
+    :: channels[myId]?rtp(inId) ->
+      goto no_perm;
+    :: timeout ->
+      goto silence;
   fi;
 pend_req:
   printf ("%d entered pending request\n", myId);
-  c201 = 1;
   do
     :: channels[myId]?rtp(inId) ->
-      c201 = 1;
+      skip;
     :: channels[myId]?deny(inId) ->
       if
         :: (inId == myId) ->
@@ -52,21 +41,19 @@ pend_req:
         :: (inId == myId) ->
           goto has_perm;
         :: (inId != myId) ->
-          c201 = 1;
+          skip;
       fi
-    :: channels[myId]?taken(inId)
-      c201 = 1;
+    :: channels[myId]?taken(inId) ->
+      skip;
     :: channels[myId]?req(inId) ->
       skip; // Ignore
     :: channels[myId]?release(inId) ->
       skip; // Ignore
     :: channels[theirId]!release(myId);
       goto silence
-    :: (c201 < 3) -> /* Expiry: T201 */
-        c201 = c201 + 1;
-        channels[theirId]!req(myId);
-    :: (c201 >= 3) -> /* T201 exired N times */
-      channels[theirId]!taken(myId);
+    :: channels[theirId]!req(myId) ->
+      skip;
+    :: channels[theirId]!taken(myId) ->
       goto has_perm;
   od;
 silence:
@@ -109,14 +96,13 @@ has_perm:
   od;
 no_perm:
   printf ("%d entered has no permission\n", myId);
-  c203 = 1;
   do
     :: channels[myId]?release(inId) ->
       goto silence;
     :: channels[myId]?grant(inId) ->
-      c203 = 1;
+      skip;
     :: channels[myId]?rtp(inId)
-      c203 = 1;
+      skip;
     :: channels[theirId]!req(myId);
       goto pend_req;
     :: channels[myId]?req(inId) ->
@@ -125,17 +111,14 @@ no_perm:
       skip;
     :: channels[myId]?taken(inId) ->
       skip;
-    :: (c203 >= 3) ->
+    :: true ->
       goto silence;
-    :: (c203 < 3) ->
-      c203 = c203 + 1;
   od;
 }
 
-
 init
 {
-  run machine (0, true, false);
-  run machine (1, false, false);
+  run machine (0);
+  run machine (1);
 }
 
