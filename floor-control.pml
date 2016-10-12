@@ -21,8 +21,10 @@ start_stop:
       goto no_perm;
     :: channels[myId]?rtp(inId) ->
       goto no_perm;
-    :: timeout ->
+    :: true ->
       goto silence;
+    :: true ->
+      goto start_stop;
   fi;
 pend_req:
   printf ("%d entered pending request\n", myId);
@@ -55,6 +57,8 @@ pend_req:
       skip;
     :: channels[theirId]!taken(myId) ->
       goto has_perm;
+    :: true ->
+      goto start_stop;
   od;
 silence:
   printf ("%d entered silence\n", myId);
@@ -74,6 +78,8 @@ silence:
     :: skip;
     :: channels[theirId]!req(myId);
       goto pend_req;
+    :: true ->
+      goto start_stop;
   od;
 has_perm:
   printf ("%d entered has permission\n", myId);
@@ -93,6 +99,8 @@ has_perm:
       assert (false); /* No one else should have the floor. */
     :: channels[myId]?rtp(inId) ->
       assert (false); /* No one else should have the floor. */
+    :: true ->
+      goto start_stop;
   od;
 no_perm:
   printf ("%d entered has no permission\n", myId);
@@ -113,6 +121,8 @@ no_perm:
       skip;
     :: true ->
       goto silence;
+    :: true ->
+      goto start_stop;
   od;
 }
 
