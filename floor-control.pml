@@ -2,8 +2,9 @@ mtype = { req, grant, deny, release, taken, rtp };
 
 int N = 2;
 int callTime = 0;
-int callLimit = 50;
-chan channels[N] = [3] of { mtype, byte };
+int callLimit = 20;
+bool terminated = false;
+chan channels[N] = [5] of { mtype, byte };
 
 proctype call ()
 {
@@ -13,6 +14,9 @@ proctype call ()
     :: (callTime >= callLimit) ->
       break;
   od;
+
+  terminated = true;
+
   printf ("Call terminated\n");
 }
 
@@ -20,34 +24,34 @@ proctype machine (byte myId)
 {
   byte inId;
   byte theirId = 1 - myId;
+  byte temp;
 
 start_stop:
   printf ("%d entered 'Start-Stop'\n", myId);
-  if
-    :: (callTime < callLimit) ->
-      skip;
-    :: (callTime >= callLimit) ->
-      goto done;
-  fi;
   do
-    :: (myId == 0) ->
-      channels[theirId]!grant(myId);
-      goto has_perm; /* Call originator */
-    :: goto silence;
-    :: channels[theirId]!req(myId) ->
-      goto pend_req; /* PTT button pushed */
-    :: channels[myId]?taken(inId) ->
-      goto no_perm;
-    :: channels[myId]?grant(inId) ->
-      goto no_perm;
-    :: channels[myId]?rtp(inId) ->
-      goto no_perm;
-    :: channels[myId]?req ->
-      skip /* Ignore message */
-    :: channels[myId]?deny ->
-      skip /* Ignore message */
-    :: channels[myId]?release ->
-      skip /* Ignore message */
+    :: (terminated == true) ->
+end:
+        channels[myId]?temp,inId;
+    :: (terminated == false) ->
+      if
+        :: channels[theirId]!grant(myId);
+          goto has_perm; /* Call originator */
+        :: goto silence;
+        :: channels[theirId]!req(myId) ->
+          goto pend_req; /* PTT button pushed */
+        :: channels[myId]?taken(inId) ->
+          goto no_perm;
+        :: channels[myId]?grant(inId) ->
+          goto no_perm;
+        :: channels[myId]?rtp(inId) ->
+          goto no_perm;
+        :: channels[myId]?req ->
+          skip /* Ignore message */
+        :: channels[myId]?deny ->
+          skip /* Ignore message */
+        :: channels[myId]?release ->
+          skip /* Ignore message */
+      fi;
   od;
 silence:
   printf ("%d entered 'O: silence'\n", myId);
@@ -66,7 +70,7 @@ silence:
       skip; /* Ignore message */
     :: channels[myId]?release(inId) ->
       skip; /* Ignore message */
-    :: (callTime >= callLimit) -> 
+    :: (terminated == true) ->
       goto start_stop; /* Call terminated */
   od;
 no_perm:
@@ -78,6 +82,7 @@ no_perm:
       goto silence;
     :: goto silence; /* Timer T203 expired */
     :: channels[myId]?grant(inId) ->
+progress_rx_rtp:
       skip;
     :: channels[myId]?rtp(inId) ->
       skip;
@@ -87,14 +92,16 @@ no_perm:
       skip; /* Ignore message */
     :: channels[myId]?taken(inId) ->
       skip; /* Ignore message */
-    :: (callTime >= callLimit) -> 
+    :: (terminated == true) ->
       goto start_stop; /* Call terminated */
   od;
 has_perm:
   printf ("%d entered 'O: has permission'\n", myId);
   channels[theirId]!rtp(myId);
   do
-    :: channels[theirId]!rtp(myId);
+    :: channels[theirId]!rtp(myId) ->
+progress_tx_rtp:
+      skip;
     :: channels[myId]?release(inId) ->
       skip; /* Ignore message */
     :: channels[myId]?req(inId) ->
@@ -113,7 +120,7 @@ has_perm:
       assert (false); /* Implies multiple arbitrators */
     :: channels[myId]?rtp(inId) ->
       assert (false); /* Implies multiple arbitrators */
-    :: (callTime >= callLimit) -> 
+    :: (terminated == true) ->
       goto start_stop; /* Call terminated */
   od;
 pend_req:
@@ -147,7 +154,7 @@ pend_req:
       skip; /* Ignore message */ 
     :: channels[myId]?release(inId) ->
       skip; /* Ignore message */
-    :: (callTime >= callLimit) -> 
+    :: (terminated == true) ->
       goto start_stop; /* Call terminated */
   od;
 pend_grant:
@@ -168,11 +175,9 @@ pend_grant:
       assert (false); /* Implies multiple arbitrators */
     :: channels[myId]?taken(inId) ->
       assert (false); /* Implies multiple arbitrators */
-    :: (callTime >= callLimit) -> 
+    :: (terminated == true) ->
       goto start_stop; /* Call terminated */
   od;
-done:
-  skip;
 }
 
 init
